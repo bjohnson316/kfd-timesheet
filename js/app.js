@@ -355,30 +355,46 @@ function submitViaHiddenIframe(fields) {
 }
 
 function init() {
-  const week1Tbody = document.querySelector('#table-week-1 tbody');
-  const week2Tbody = document.querySelector('#table-week-2 tbody');
-  buildWeekRows(week1Tbody, 0);
-  buildWeekRows(week2Tbody, 7);
-
-  const today = new Date();
-  document.getElementById('sigDate').value = isoDate(today);
-
-  document.getElementById('payPeriodStart').addEventListener('change', recalcAll);
-  document.body.addEventListener('input', (e) => {
-    if (e.target.closest('table.timesheet-table')) recalcAll();
-  });
-
-  sigPad = createSignaturePad(document.getElementById('sigPad'));
-  document.getElementById('clearSig').addEventListener('click', () => sigPad.clear());
-
+  // Wire the submit button up FIRST, before anything else runs, so that even
+  // if a later setup step throws, clicking the button still does *something*
+  // (shows an error) instead of silently doing nothing.
   document.getElementById('submitBtn').addEventListener('click', onSubmit);
 
-  loadImageAsDataUrl('assets/city-of-krum-seal.png').then(dataUrl => { citySealDataUrl = dataUrl; });
+  window.addEventListener('error', (e) => {
+    setStatus('Something went wrong on this page (' + e.message + '). Try refreshing.', 'error');
+  });
 
-  recalcAll();
+  try {
+    const week1Tbody = document.querySelector('#table-week-1 tbody');
+    const week2Tbody = document.querySelector('#table-week-2 tbody');
+    buildWeekRows(week1Tbody, 0);
+    buildWeekRows(week2Tbody, 7);
+
+    const today = new Date();
+    document.getElementById('sigDate').value = isoDate(today);
+
+    document.getElementById('payPeriodStart').addEventListener('change', recalcAll);
+    document.body.addEventListener('input', (e) => {
+      if (e.target.closest('table.timesheet-table')) recalcAll();
+    });
+
+    sigPad = createSignaturePad(document.getElementById('sigPad'));
+    document.getElementById('clearSig').addEventListener('click', () => sigPad.clear());
+
+    loadImageAsDataUrl('assets/city-of-krum-seal.png').then(dataUrl => { citySealDataUrl = dataUrl; });
+
+    recalcAll();
+  } catch (err) {
+    console.error('Error while setting up the form:', err);
+    setStatus('The form did not load correctly (' + err.message + '). Try refreshing the page.', 'error');
+  }
 }
 
 async function onSubmit() {
+  if (!sigPad) {
+    setStatus('The signature pad did not load correctly. Try refreshing the page.', 'error');
+    return;
+  }
   const data = collectData();
 
   if (!data.employeeName) { setStatus('Enter the employee name.', 'error'); return; }
@@ -388,6 +404,10 @@ async function onSubmit() {
   if (sigPad.isEmpty()) { setStatus('Employee signature is required before submitting.', 'error'); return; }
   if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('PASTE_YOUR') === 0) {
     setStatus('This app is not yet connected to an email backend. See README.md (js/config.js).', 'error');
+    return;
+  }
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    setStatus('The PDF library did not load (check your internet connection or ad blocker) and try again.', 'error');
     return;
   }
 
