@@ -46,16 +46,12 @@ body{
   border-bottom:3px solid var(--ink);
   position:relative;
 }
-.masthead-left{display:flex; align-items:flex-start; gap:14px;}
-.badge-tab{
-  font-family:var(--font-mono);
-  font-size:11px;
-  letter-spacing:.14em;
-  background:var(--brick);
-  color:#fff;
-  padding:4px 8px;
-  margin-top:6px;
-  border-radius:var(--radius);
+.masthead-left{display:flex; align-items:flex-start; gap:16px;}
+.dept-logo{
+  width:56px;
+  height:auto;
+  margin-top:2px;
+  flex-shrink:0;
 }
 h1{
   font-family:var(--font-display);
@@ -302,8 +298,17 @@ tr.grand-row td:first-child{
 .field-inline input{padding:8px 10px; border:1px solid var(--line-strong); border-radius:var(--radius); width:100%;}
 
 .director-col{border-left:1px dashed var(--line-strong); padding-left:24px;}
-.director-name-field{margin-bottom:12px; max-width:100%;}
-.director-name-field input{padding:9px 11px; font-size:15px;}
+.director-placeholder{
+  border:1px dashed var(--line-strong);
+  padding:26px 12px;
+  text-align:center;
+  color:var(--ink-soft);
+  font-family:var(--font-mono);
+  font-size:12.5px;
+  letter-spacing:.05em;
+  background:#fff;
+  margin-top:6px;
+}
 
 /* ---------- Submit ---------- */
 .submit-block{padding:28px 32px 34px;}
