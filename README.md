@@ -76,19 +76,18 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycb.../exec";
    pay-period grand total update live, matching the original spreadsheet's
    `SUM` formulas.
 3. Add notes if needed.
-4. **Employee signs**: sign in the employee signature box, check the
-   certification box, confirm the date.
-5. **Director signs**: enter the director's name, have them sign in the
-   director signature box, confirm the date — matching the two
-   signature/date lines on the original spreadsheet.
-6. Enter the recipient's email address (whoever should receive the
+4. Sign in the employee signature box, check the certification box, confirm
+   the date.
+5. Enter the recipient's email address (whoever should receive the
    completed timesheet).
-7. Click **Sign & submit timesheet**. The app generates a PDF, emails it
+6. Click **Sign & submit timesheet**. The app generates a PDF, emails it
    through your Apps Script, and also downloads a copy to the submitter's
    own computer as a receipt.
 
-Both signatures are required before the form will submit, matching the two
-signature lines on the original spreadsheet.
+The **director signature** is not captured digitally — the generated PDF
+includes a blank signature line for the director, who signs it by hand
+after it's printed, matching the original spreadsheet's second signature
+line.
 
 ## Files
 

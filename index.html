@@ -4,6 +4,10 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>14-Day Time Record</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/favicon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css" />
@@ -14,7 +18,7 @@
 
   <header class="masthead">
     <div class="masthead-left">
-      <span class="badge-tab">LOG</span>
+      <img src="assets/kfd-patch-logo.png" alt="Krum Fire Department patch" class="dept-logo" />
       <h1>14 Day Schedule<br><span class="sub">Time Record (non-exempt)</span></h1>
     </div>
     <div class="masthead-right">
@@ -173,19 +177,8 @@
     </div>
     <div class="sign-col director-col">
       <h2>Director signature</h2>
-      <p class="sign-help">To be signed by the approving director before submitting.</p>
-      <div class="field-inline director-name-field">
-        <label for="directorName">Director name</label>
-        <input type="text" id="directorName" placeholder="Full name" />
-      </div>
-      <div class="pad-wrap">
-        <canvas id="sigPadDirector" width="600" height="180"></canvas>
-        <button type="button" id="clearSigDirector" class="ghost-btn">Clear</button>
-      </div>
-      <div class="field-inline">
-        <label for="directorSigDate">Date</label>
-        <input type="date" id="directorSigDate" />
-      </div>
+      <p class="sign-help">The director signs the printed PDF by hand after this is submitted.</p>
+      <div class="director-placeholder">Print &amp; sign manually</div>
     </div>
   </section>
 
