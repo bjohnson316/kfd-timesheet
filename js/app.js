@@ -225,12 +225,6 @@ function buildPdf(data, signatureDataUrl, citySealImg) {
     const body = week.rows.map(r => [
       r.day, r.in || '', r.out || '', r.regular, r.dplr, r.flsa, r.dpflsa, r.ot, r.dplo, r.sick, r.vacation, r.holiday, r.other, r.total
     ]);
-    body.push([
-      `WEEK ${idx + 1} TOTAL`, '', '',
-      week.totals.regular, week.totals.dplr, week.totals.flsa, week.totals.dpflsa,
-      week.totals.ot, week.totals.dplo, week.totals.sick, week.totals.vacation,
-      week.totals.holiday, week.totals.other, week.totals.total
-    ]);
 
     doc.autoTable({
       head, body,
@@ -238,15 +232,22 @@ function buildPdf(data, signatureDataUrl, citySealImg) {
       margin: { left: marginX, right: marginX },
       styles: { fontSize: 8, cellPadding: 3, halign: 'center' },
       headStyles: { fillColor: [28, 43, 43], textColor: 255 },
-      columnStyles: { 0: { halign: 'left', cellWidth: 90 } },
-      didParseCell: function (hookData) {
-        if (hookData.row.index === body.length - 1) {
-          hookData.cell.styles.fontStyle = 'bold';
-          hookData.cell.styles.fillColor = [28, 43, 43];
-          hookData.cell.styles.textColor = 255;
-        }
-      }
+      columnStyles: { 0: { halign: 'left', cellWidth: 90 } }
     });
+
+    doc.autoTable({
+      body: [[
+        `WEEK ${idx + 1} TOTAL`, '', '',
+        week.totals.regular, week.totals.dplr, week.totals.flsa, week.totals.dpflsa,
+        week.totals.ot, week.totals.dplo, week.totals.sick, week.totals.vacation,
+        week.totals.holiday, week.totals.other, week.totals.total
+      ]],
+      startY: doc.lastAutoTable.finalY,
+      margin: { left: marginX, right: marginX },
+      styles: { fontSize: 8, cellPadding: 3, halign: 'center', fontStyle: 'bold', fillColor: [28, 43, 43], textColor: 255 },
+      columnStyles: { 0: { halign: 'left', cellWidth: 90 } }
+    });
+
     y = doc.lastAutoTable.finalY + 14;
   });
 
