@@ -190,6 +190,30 @@ function collectData() {
   return { employeeName, start, schedule, notes, recipient, sigDate, weeks, grand };
 }
 
+function drawSolidRow(doc, marginX, pageWidth, startY, values, fillColor, textColor) {
+  const rowHeight = 20;
+  const firstColWidth = 90;
+  const totalWidth = pageWidth - marginX * 2;
+  const colWidth = (totalWidth - firstColWidth) / (values.length - 1);
+
+  doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
+  doc.rect(marginX, startY, totalWidth, rowHeight, 'F');
+
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+
+  const textY = startY + rowHeight / 2 + 3;
+  doc.text(String(values[0]), marginX + 6, textY, { align: 'left' });
+  for (let i = 1; i < values.length; i++) {
+    const cx = marginX + firstColWidth + (i - 1) * colWidth + colWidth / 2;
+    doc.text(String(values[i]), cx, textY, { align: 'center' });
+  }
+
+  doc.setTextColor(0, 0, 0);
+  return startY + rowHeight;
+}
+
 function buildPdf(data, signatureDataUrl, citySealImg) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
@@ -235,35 +259,31 @@ function buildPdf(data, signatureDataUrl, citySealImg) {
       columnStyles: { 0: { halign: 'left', cellWidth: 90 } }
     });
 
-    doc.autoTable({
-      body: [[
+    const weekTotalY = drawSolidRow(
+      doc, marginX, pageWidth, doc.lastAutoTable.finalY,
+      [
         `WEEK ${idx + 1} TOTAL`, '', '',
         week.totals.regular, week.totals.dplr, week.totals.flsa, week.totals.dpflsa,
         week.totals.ot, week.totals.dplo, week.totals.sick, week.totals.vacation,
         week.totals.holiday, week.totals.other, week.totals.total
-      ]],
-      startY: doc.lastAutoTable.finalY,
-      margin: { left: marginX, right: marginX },
-      styles: { fontSize: 8, cellPadding: 3, halign: 'center', fontStyle: 'bold', fillColor: [28, 43, 43], textColor: 255 },
-      columnStyles: { 0: { halign: 'left', cellWidth: 90 } }
-    });
+      ],
+      [28, 43, 43], [255, 255, 255]
+    );
 
-    y = doc.lastAutoTable.finalY + 14;
+    y = weekTotalY + 14;
   });
 
-  doc.autoTable({
-    body: [[
+  y = drawSolidRow(
+    doc, marginX, pageWidth, y,
+    [
       'PAY PERIOD TOTALS', '', '',
       data.grand.regular, data.grand.dplr, data.grand.flsa, data.grand.dpflsa,
       data.grand.ot, data.grand.dplo, data.grand.sick, data.grand.vacation,
       data.grand.holiday, data.grand.other, data.grand.total
-    ]],
-    startY: y,
-    margin: { left: marginX, right: marginX },
-    styles: { fontSize: 8.5, cellPadding: 3, halign: 'center', fontStyle: 'bold', fillColor: [165, 55, 44], textColor: 255 },
-    columnStyles: { 0: { halign: 'left', cellWidth: 90 } }
-  });
-  y = doc.lastAutoTable.finalY + 18;
+    ],
+    [165, 55, 44], [255, 255, 255]
+  );
+  y += 18;
 
   if (data.notes) {
     doc.setFont('helvetica', 'bold');
