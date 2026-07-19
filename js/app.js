@@ -8,7 +8,22 @@ const HOUR_LABELS = {
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 let sigPad;
-let sigPadDirector;
+let citySealDataUrl = null;
+
+function loadImageAsDataUrl(path) {
+  return fetch(path)
+    .then(resp => resp.blob())
+    .then(blob => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    }))
+    .catch(err => {
+      console.error('Could not load image', path, err);
+      return null;
+    });
+}
 
 function formatDate(d) {
   return `${DAY_NAMES[d.getDay()]} ${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
@@ -146,8 +161,6 @@ function collectData() {
   const notes = document.getElementById('notes').value.trim();
   const recipient = document.getElementById('recipientEmail').value.trim();
   const sigDate = document.getElementById('sigDate').value;
-  const directorName = document.getElementById('directorName').value.trim();
-  const directorSigDate = document.getElementById('directorSigDate').value;
 
   const weeks = [1, 2].map(weekNum => {
     const table = document.getElementById(`table-week-${weekNum}`);
@@ -174,21 +187,29 @@ function collectData() {
     grand[key] = document.querySelector(`[data-grand="${key}"]`).textContent;
   });
 
-  return { employeeName, start, schedule, notes, recipient, sigDate, directorName, directorSigDate, weeks, grand };
+  return { employeeName, start, schedule, notes, recipient, sigDate, weeks, grand };
 }
 
-function buildPdf(data, signatureDataUrl, directorSignatureDataUrl) {
+function buildPdf(data, signatureDataUrl, citySealImg) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
   const marginX = 32;
+  const pageWidth = doc.internal.pageSize.getWidth();
   let y = 40;
+
+  if (citySealImg) {
+    const sealSize = 44;
+    const sealX = pageWidth - marginX - sealSize;
+    const sealY = 12;
+    doc.addImage(citySealImg, 'PNG', sealX, sealY, sealSize, sealSize);
+  }
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
   doc.text('14 Day Schedule Time Record (non-exempt)', marginX, y);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.schedule || '', 760, y, { align: 'right' });
+  doc.text(data.schedule || '', pageWidth - marginX - 50, y + 24, { align: 'right' });
 
   y += 20;
   doc.setFontSize(11);
@@ -221,7 +242,8 @@ function buildPdf(data, signatureDataUrl, directorSignatureDataUrl) {
       didParseCell: function (hookData) {
         if (hookData.row.index === body.length - 1) {
           hookData.cell.styles.fontStyle = 'bold';
-          hookData.cell.styles.fillColor = [238, 241, 239];
+          hookData.cell.styles.fillColor = [28, 43, 43];
+          hookData.cell.styles.textColor = 255;
         }
       }
     });
@@ -264,16 +286,20 @@ function buildPdf(data, signatureDataUrl, directorSignatureDataUrl) {
   if (signatureDataUrl) {
     doc.addImage(signatureDataUrl, 'PNG', marginX, y + 8, 180, 55);
   }
-  if (directorSignatureDataUrl) {
-    doc.addImage(directorSignatureDataUrl, 'PNG', directorX, y + 8, 180, 55);
-  }
+  doc.setDrawColor(120);
+  doc.line(directorX, y + 55, directorX + 200, y + 55);
+  doc.setFontSize(8);
+  doc.setTextColor(120);
+  doc.text('Sign here (print & sign by hand)', directorX, y + 66);
+  doc.setTextColor(0);
 
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
   doc.text(`${data.employeeName || ''}`, marginX, y + 72);
   doc.text(`Date: ${data.sigDate || ''}`, marginX, y + 86);
 
-  doc.text(`${data.directorName || ''}`, directorX, y + 72);
-  doc.text(`Date: ${data.directorSigDate || ''}`, directorX, y + 86);
+  doc.text('Name: ______________________', directorX, y + 84);
+  doc.text('Date: ______________', directorX, y + 98);
 
   doc.setFontSize(8);
   doc.setTextColor(120);
@@ -345,12 +371,9 @@ function init() {
   sigPad = createSignaturePad(document.getElementById('sigPad'));
   document.getElementById('clearSig').addEventListener('click', () => sigPad.clear());
 
-  sigPadDirector = createSignaturePad(document.getElementById('sigPadDirector'));
-  document.getElementById('clearSigDirector').addEventListener('click', () => sigPadDirector.clear());
-
-  document.getElementById('directorSigDate').value = isoDate(today);
-
   document.getElementById('submitBtn').addEventListener('click', onSubmit);
+
+  loadImageAsDataUrl('assets/city-of-krum-seal.png').then(dataUrl => { citySealDataUrl = dataUrl; });
 
   recalcAll();
 }
@@ -363,8 +386,6 @@ async function onSubmit() {
   if (!data.recipient) { setStatus('Enter the recipient email address.', 'error'); return; }
   if (!document.getElementById('attestCheck').checked) { setStatus('Check the certification box before submitting.', 'error'); return; }
   if (sigPad.isEmpty()) { setStatus('Employee signature is required before submitting.', 'error'); return; }
-  if (!data.directorName) { setStatus('Enter the director\'s name.', 'error'); return; }
-  if (sigPadDirector.isEmpty()) { setStatus('Director signature is required before submitting.', 'error'); return; }
   if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('PASTE_YOUR') === 0) {
     setStatus('This app is not yet connected to an email backend. See README.md (js/config.js).', 'error');
     return;
@@ -375,9 +396,11 @@ async function onSubmit() {
   setStatus('Generating PDF…', 'pending');
 
   try {
+    if (citySealDataUrl === null) {
+      citySealDataUrl = await loadImageAsDataUrl('assets/city-of-krum-seal.png');
+    }
     const signatureDataUrl = sigPad.toDataURL();
-    const directorSignatureDataUrl = sigPadDirector.toDataURL();
-    const doc = buildPdf(data, signatureDataUrl, directorSignatureDataUrl);
+    const doc = buildPdf(data, signatureDataUrl, citySealDataUrl);
     const pdfBase64 = doc.output('datauristring').split(',')[1];
     const filename = `Timesheet_${data.employeeName.replace(/\s+/g, '_')}_${data.start}.pdf`;
 
