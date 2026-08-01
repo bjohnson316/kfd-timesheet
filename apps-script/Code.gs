@@ -21,16 +21,16 @@ function doPost(e) {
     var recipient = params.recipient;
     var employeeName = params.employeeName || "Unknown";
     var payPeriod = params.payPeriod || "";
-    var filename = params.filename || "Timesheet.pdf";
-    var pdfBase64 = params.pdfBase64;
+    var filename = params.filename || "Timesheet.xlsx";
+    var fileBase64 = params.fileBase64;
 
-    if (!recipient || !pdfBase64) {
-      return jsonResponse({ status: "error", message: "Missing recipient or PDF data." });
+    if (!recipient || !fileBase64) {
+      return jsonResponse({ status: "error", message: "Missing recipient or file data." });
     }
 
-    var pdfBlob = Utilities.newBlob(
-      Utilities.base64Decode(pdfBase64),
-      "application/pdf",
+    var fileBlob = Utilities.newBlob(
+      Utilities.base64Decode(fileBase64),
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       filename
     );
 
@@ -39,9 +39,9 @@ function doPost(e) {
       "A signed timesheet has been submitted.\n\n" +
       "Employee: " + employeeName + "\n" +
       "Pay period: " + payPeriod + "\n\n" +
-      "The completed, signed timesheet is attached as a PDF.";
+      "The completed, signed timesheet is attached (same layout as the original spreadsheet, with hours and the employee signature filled in).";
 
-    var mailOptions = { attachments: [pdfBlob] };
+    var mailOptions = { attachments: [fileBlob] };
     if (BCC_RECORD_KEEPING_EMAIL) {
       mailOptions.bcc = BCC_RECORD_KEEPING_EMAIL;
     }
