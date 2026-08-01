@@ -264,6 +264,35 @@ function setStatus(msg, kind) {
   el.className = 'status-msg' + (kind ? ' ' + kind : '');
 }
 
+async function submitTimesheet(fields) {
+  const formData = new FormData();
+  Object.keys(fields).forEach(key => formData.append(key, fields[key]));
+
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: formData });
+    const text = await resp.text();
+    let json;
+    try { json = JSON.parse(text); } catch (e) { json = null; }
+
+    if (json && json.status === 'success') {
+      return { ok: true };
+    }
+    if (json && json.status === 'error') {
+      return { ok: false, message: json.message || 'The email server reported an error.' };
+    }
+    // Got a response but couldn't parse it as the expected JSON — likely the
+    // Apps Script URL is wrong, not deployed, or returned an HTML error page.
+    return { ok: false, message: 'Unexpected response from the email server. Check the Apps Script deployment.' };
+  } catch (err) {
+    // fetch itself failed (network error, or the browser blocked reading the
+    // cross-origin response). Fall back to a fire-and-forget submission so the
+    // email still has a chance to send, but we can't confirm it worked.
+    console.error('fetch submission failed, falling back to iframe:', err);
+    await submitViaHiddenIframe(fields);
+    return { ok: true, unconfirmed: true };
+  }
+}
+
 function submitViaHiddenIframe(fields) {
   return new Promise((resolve) => {
     const iframeName = 'submitFrame_' + Date.now();
@@ -371,15 +400,13 @@ async function onSubmit() {
 
     setStatus('Sending email…', 'pending');
 
-    await submitViaHiddenIframe({
+    const result = await submitTimesheet({
       recipient: data.recipient,
       employeeName: data.employeeName,
       payPeriod: `${data.start} to ${isoDate(addDays(new Date(data.start + 'T00:00:00'), 13))}`,
       filename,
       fileBase64: xlsxBase64
     });
-
-    setStatus('Timesheet sent. A copy has also been downloaded for your records.', 'ok');
 
     const blob = new Blob([xlsxBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
@@ -390,6 +417,14 @@ async function onSubmit() {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+    if (result.ok && !result.unconfirmed) {
+      setStatus('Timesheet emailed successfully. A copy has also been downloaded for your records.', 'ok');
+    } else if (result.ok && result.unconfirmed) {
+      setStatus('Timesheet submitted, but this browser could not confirm delivery — check that it arrived, or ask the recipient. A copy has been downloaded for your records.', 'pending');
+    } else {
+      setStatus('The timesheet was NOT emailed: ' + result.message + ' A copy has still been downloaded so you don\'t lose your entries.', 'error');
+    }
   } catch (err) {
     console.error(err);
     setStatus('Something went wrong generating or sending the timesheet. Try again.', 'error');
