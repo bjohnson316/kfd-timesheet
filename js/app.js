@@ -41,6 +41,7 @@ function buildWeekRows(tbody, startIndex) {
     const inInput = document.createElement('input');
     inInput.type = 'time';
     inInput.dataset.field = 'in';
+    inInput.setAttribute('value', '07:00');
     inInput.value = '07:00';
     inTd.appendChild(inInput);
     tr.appendChild(inTd);
@@ -49,6 +50,7 @@ function buildWeekRows(tbody, startIndex) {
     const outInput = document.createElement('input');
     outInput.type = 'time';
     outInput.dataset.field = 'out';
+    outInput.setAttribute('value', '07:00');
     outInput.value = '07:00';
     outTd.appendChild(outInput);
     tr.appendChild(outTd);
