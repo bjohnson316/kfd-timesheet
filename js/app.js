@@ -192,6 +192,41 @@ const HOUR_COLUMN_LETTERS = {
 const WEEK1_ROWS = [8, 9, 10, 11, 12, 13, 14];
 const WEEK2_ROWS = [18, 19, 20, 21, 22, 23, 24];
 
+const NOTES_LINE_CELLS = ['F31', 'F32', 'F33', 'F34', 'F35', 'F36'];
+const NOTES_MAX_CHARS_PER_LINE = 85;
+
+function wrapNotesIntoLines(text, maxLines) {
+  // Respect the line breaks the person actually typed, then soft-wrap any
+  // single line that's too long for the box's width.
+  const rawLines = text.split(/\r?\n/);
+  const wrapped = [];
+
+  rawLines.forEach(rawLine => {
+    if (rawLine.length <= NOTES_MAX_CHARS_PER_LINE) {
+      wrapped.push(rawLine);
+      return;
+    }
+    let remaining = rawLine;
+    while (remaining.length > NOTES_MAX_CHARS_PER_LINE) {
+      let breakAt = remaining.lastIndexOf(' ', NOTES_MAX_CHARS_PER_LINE);
+      if (breakAt <= 0) breakAt = NOTES_MAX_CHARS_PER_LINE;
+      wrapped.push(remaining.slice(0, breakAt).trim());
+      remaining = remaining.slice(breakAt).trim();
+    }
+    if (remaining) wrapped.push(remaining);
+  });
+
+  if (wrapped.length > maxLines) {
+    // Don't silently drop text that doesn't fit the box — fold anything past
+    // the last available line onto that line instead.
+    const head = wrapped.slice(0, maxLines - 1);
+    const overflow = wrapped.slice(maxLines - 1).join(' ');
+    head.push(overflow);
+    return head;
+  }
+  return wrapped;
+}
+
 async function buildXlsx(data, signatureDataUrl) {
   const templateBuffer = await fetch('assets/timesheet-template.xlsx').then(r => {
     if (!r.ok) throw new Error('Could not load the spreadsheet template (' + r.status + ')');
@@ -228,7 +263,11 @@ async function buildXlsx(data, signatureDataUrl) {
   fillWeekRows(WEEK1_ROWS, data.weeks[0]);
   fillWeekRows(WEEK2_ROWS, data.weeks[1]);
 
-  if (data.notes) ws.getCell('F31').value = data.notes;
+  if (data.notes) {
+    wrapNotesIntoLines(data.notes, NOTES_LINE_CELLS.length).forEach((line, i) => {
+      ws.getCell(NOTES_LINE_CELLS[i]).value = line;
+    });
+  }
 
   if (data.sigDate) {
     const [yy, mm, dd] = data.sigDate.split('-').map(Number);
