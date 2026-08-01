@@ -41,6 +41,7 @@ function buildWeekRows(tbody, startIndex) {
     const inInput = document.createElement('input');
     inInput.type = 'time';
     inInput.dataset.field = 'in';
+    inInput.value = '07:00';
     inTd.appendChild(inInput);
     tr.appendChild(inTd);
 
@@ -48,6 +49,7 @@ function buildWeekRows(tbody, startIndex) {
     const outInput = document.createElement('input');
     outInput.type = 'time';
     outInput.dataset.field = 'out';
+    outInput.value = '07:00';
     outTd.appendChild(outInput);
     tr.appendChild(outTd);
 
@@ -208,10 +210,13 @@ async function buildXlsx(data, signatureDataUrl) {
   const fillWeekRows = (rowNumbers, weekData) => {
     weekData.rows.forEach((day, i) => {
       const row = rowNumbers[i];
-      const inFrac = timeToDayFraction(day.in);
-      const outFrac = timeToDayFraction(day.out);
-      if (inFrac !== null) ws.getCell(`B${row}`).value = inFrac;
-      if (outFrac !== null) ws.getCell(`C${row}`).value = outFrac;
+      const hasHours = Object.keys(HOUR_COLUMN_LETTERS).some(key => (parseFloat(day[key]) || 0) !== 0);
+      if (hasHours) {
+        const inFrac = timeToDayFraction(day.in);
+        const outFrac = timeToDayFraction(day.out);
+        if (inFrac !== null) ws.getCell(`B${row}`).value = inFrac;
+        if (outFrac !== null) ws.getCell(`C${row}`).value = outFrac;
+      }
       Object.keys(HOUR_COLUMN_LETTERS).forEach(key => {
         const val = parseFloat(day[key]) || 0;
         if (val !== 0) ws.getCell(`${HOUR_COLUMN_LETTERS[key]}${row}`).value = val;
@@ -319,13 +324,6 @@ function init() {
     document.getElementById('payPeriodStart').addEventListener('change', recalcAll);
     document.body.addEventListener('input', (e) => {
       if (e.target.closest('table.timesheet-table')) recalcAll();
-    });
-    document.body.addEventListener('focusin', (e) => {
-      const el = e.target;
-      if (el.matches('input[type="time"]') && !el.value) {
-        el.value = '07:00';
-        recalcAll();
-      }
     });
 
     sigPad = createSignaturePad(document.getElementById('sigPad'));
