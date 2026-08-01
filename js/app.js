@@ -8,22 +8,6 @@ const HOUR_LABELS = {
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 let sigPad;
-let citySealDataUrl = null;
-
-function loadImageAsDataUrl(path) {
-  return fetch(path)
-    .then(resp => resp.blob())
-    .then(blob => new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    }))
-    .catch(err => {
-      console.error('Could not load image', path, err);
-      return null;
-    });
-}
 
 function formatDate(d) {
   return `${DAY_NAMES[d.getDay()]} ${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
@@ -190,141 +174,81 @@ function collectData() {
   return { employeeName, start, schedule, notes, recipient, sigDate, weeks, grand };
 }
 
-function drawSolidRow(doc, marginX, pageWidth, startY, values, fillColor, textColor) {
-  const rowHeight = 20;
-  const firstColWidth = 90;
-  const totalWidth = pageWidth - marginX * 2;
-  const colWidth = (totalWidth - firstColWidth) / (values.length - 1);
-
-  doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
-  doc.rect(marginX, startY, totalWidth, rowHeight, 'F');
-
-  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-
-  const textY = startY + rowHeight / 2 + 3;
-  doc.text(String(values[0]), marginX + 6, textY, { align: 'left' });
-  for (let i = 1; i < values.length; i++) {
-    const cx = marginX + firstColWidth + (i - 1) * colWidth + colWidth / 2;
-    doc.text(String(values[i]), cx, textY, { align: 'center' });
-  }
-
-  doc.setTextColor(0, 0, 0);
-  return startY + rowHeight;
+function timeToDayFraction(t) {
+  if (!t) return null;
+  const [h, m] = t.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return (h * 60 + m) / 1440;
 }
 
-function buildPdf(data, signatureDataUrl, citySealImg) {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
-  const marginX = 32;
-  const pageWidth = doc.internal.pageSize.getWidth();
-  let y = 40;
+const HOUR_COLUMN_LETTERS = {
+  regular: 'D', dplr: 'E', flsa: 'F', dpflsa: 'G', ot: 'H',
+  dplo: 'I', sick: 'J', vacation: 'K', holiday: 'L', other: 'M'
+};
+const WEEK1_ROWS = [8, 9, 10, 11, 12, 13, 14];
+const WEEK2_ROWS = [18, 19, 20, 21, 22, 23, 24];
 
-  if (citySealImg) {
-    const sealSize = 44;
-    const sealX = pageWidth - marginX - sealSize;
-    const sealY = 12;
-    doc.addImage(citySealImg, 'PNG', sealX, sealY, sealSize, sealSize);
-  }
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.text('14 Day Schedule Time Record (non-exempt)', marginX, y);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(data.schedule || '', pageWidth - marginX - 50, y + 24, { align: 'right' });
-
-  y += 20;
-  doc.setFontSize(11);
-  doc.text(`Employee: ${data.employeeName}`, marginX, y);
-  const start = data.start ? new Date(data.start + 'T00:00:00') : null;
-  const end = start ? addDays(start, 13) : null;
-  doc.text(`Pay period: ${start ? isoDate(start) : ''}  to  ${end ? isoDate(end) : ''}`, 400, y);
-
-  const head = [['Day / Date', 'In', 'Out', 'Reg', 'DPLR', 'FLSA', 'DPFLSA', 'OT', 'DPLO', 'Sick', 'Vac', 'Hol', 'Other', 'Total']];
-
-  y += 14;
-  data.weeks.forEach((week, idx) => {
-    const body = week.rows.map(r => [
-      r.day, r.in || '', r.out || '', r.regular, r.dplr, r.flsa, r.dpflsa, r.ot, r.dplo, r.sick, r.vacation, r.holiday, r.other, r.total
-    ]);
-
-    doc.autoTable({
-      head, body,
-      startY: y,
-      margin: { left: marginX, right: marginX },
-      styles: { fontSize: 8, cellPadding: 3, halign: 'center' },
-      headStyles: { fillColor: [28, 43, 43], textColor: 255 },
-      columnStyles: { 0: { halign: 'left', cellWidth: 90 } }
-    });
-
-    const weekTotalY = drawSolidRow(
-      doc, marginX, pageWidth, doc.lastAutoTable.finalY,
-      [
-        `WEEK ${idx + 1} TOTAL`, '', '',
-        week.totals.regular, week.totals.dplr, week.totals.flsa, week.totals.dpflsa,
-        week.totals.ot, week.totals.dplo, week.totals.sick, week.totals.vacation,
-        week.totals.holiday, week.totals.other, week.totals.total
-      ],
-      [28, 43, 43], [255, 255, 255]
-    );
-
-    y = weekTotalY + 14;
+async function buildXlsx(data, signatureDataUrl) {
+  const templateBuffer = await fetch('assets/timesheet-template.xlsx').then(r => {
+    if (!r.ok) throw new Error('Could not load the spreadsheet template (' + r.status + ')');
+    return r.arrayBuffer();
   });
 
-  y = drawSolidRow(
-    doc, marginX, pageWidth, y,
-    [
-      'PAY PERIOD TOTALS', '', '',
-      data.grand.regular, data.grand.dplr, data.grand.flsa, data.grand.dpflsa,
-      data.grand.ot, data.grand.dplo, data.grand.sick, data.grand.vacation,
-      data.grand.holiday, data.grand.other, data.grand.total
-    ],
-    [165, 55, 44], [255, 255, 255]
-  );
-  y += 18;
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(templateBuffer);
+  const ws = workbook.getWorksheet('Sheet1') || workbook.worksheets[0];
 
-  if (data.notes) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text('Notes:', marginX, y);
-    doc.setFont('helvetica', 'normal');
-    const split = doc.splitTextToSize(data.notes, 700);
-    doc.text(split, marginX, y + 14);
-    y += 14 + split.length * 12 + 10;
+  if (data.schedule) ws.getCell('N1').value = data.schedule;
+  ws.getCell('C3').value = data.employeeName;
+  if (data.start) {
+    const [yy, mm, dd] = data.start.split('-').map(Number);
+    ws.getCell('C5').value = new Date(yy, mm - 1, dd);
   }
 
-  y += 10;
-  const sigColWidth = 340;
-  const directorX = marginX + sigColWidth + 30;
+  const fillWeekRows = (rowNumbers, weekData) => {
+    weekData.rows.forEach((day, i) => {
+      const row = rowNumbers[i];
+      const inFrac = timeToDayFraction(day.in);
+      const outFrac = timeToDayFraction(day.out);
+      if (inFrac !== null) ws.getCell(`B${row}`).value = inFrac;
+      if (outFrac !== null) ws.getCell(`C${row}`).value = outFrac;
+      Object.keys(HOUR_COLUMN_LETTERS).forEach(key => {
+        const val = parseFloat(day[key]) || 0;
+        if (val !== 0) ws.getCell(`${HOUR_COLUMN_LETTERS[key]}${row}`).value = val;
+      });
+    });
+  };
+  fillWeekRows(WEEK1_ROWS, data.weeks[0]);
+  fillWeekRows(WEEK2_ROWS, data.weeks[1]);
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.text('Employee signature:', marginX, y);
-  doc.text('Director signature:', directorX, y);
+  if (data.notes) ws.getCell('F31').value = data.notes;
+
+  if (data.sigDate) {
+    const [yy, mm, dd] = data.sigDate.split('-').map(Number);
+    ws.getCell('D32').value = new Date(yy, mm - 1, dd);
+  }
 
   if (signatureDataUrl) {
-    doc.addImage(signatureDataUrl, 'PNG', marginX, y + 8, 180, 55);
+    const imageId = workbook.addImage({ base64: signatureDataUrl, extension: 'png' });
+    ws.addImage(imageId, {
+      tl: { col: 0, row: 30 },
+      br: { col: 4, row: 32 },
+      editAs: 'oneCell'
+    });
   }
-  doc.setDrawColor(120);
-  doc.line(directorX, y + 55, directorX + 200, y + 55);
-  doc.setFontSize(8);
-  doc.setTextColor(0);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.text(`${data.employeeName || ''}`, marginX, y + 72);
-  doc.text(`Date: ${data.sigDate || ''}`, marginX, y + 86);
+  const outBuffer = await workbook.xlsx.writeBuffer();
+  return outBuffer;
+}
 
-  doc.text('Name: ______________________', directorX, y + 84);
-  doc.text('Date: ______________', directorX, y + 98);
-
-  doc.setFontSize(8);
-  doc.setTextColor(120);
-  doc.text(`Submitted electronically ${new Date().toLocaleString()}`, marginX, 570);
-
-  return doc;
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return window.btoa(binary);
 }
 
 function setStatus(msg, kind) {
@@ -400,8 +324,6 @@ function init() {
     sigPad = createSignaturePad(document.getElementById('sigPad'));
     document.getElementById('clearSig').addEventListener('click', () => sigPad.clear());
 
-    loadImageAsDataUrl('assets/city-of-krum-seal.png').then(dataUrl => { citySealDataUrl = dataUrl; });
-
     recalcAll();
   } catch (err) {
     console.error('Error while setting up the form:', err);
@@ -425,23 +347,20 @@ async function onSubmit() {
     setStatus('This app is not yet connected to an email backend. See README.md (js/config.js).', 'error');
     return;
   }
-  if (!window.jspdf || !window.jspdf.jsPDF) {
-    setStatus('The PDF library did not load (check your internet connection or ad blocker) and try again.', 'error');
+  if (!window.ExcelJS) {
+    setStatus('The spreadsheet library did not load (check your internet connection or ad blocker) and try again.', 'error');
     return;
   }
 
   const submitBtn = document.getElementById('submitBtn');
   submitBtn.disabled = true;
-  setStatus('Generating PDF…', 'pending');
+  setStatus('Filling in the spreadsheet…', 'pending');
 
   try {
-    if (citySealDataUrl === null) {
-      citySealDataUrl = await loadImageAsDataUrl('assets/city-of-krum-seal.png');
-    }
     const signatureDataUrl = sigPad.toDataURL();
-    const doc = buildPdf(data, signatureDataUrl, citySealDataUrl);
-    const pdfBase64 = doc.output('datauristring').split(',')[1];
-    const filename = `Timesheet_${data.employeeName.replace(/\s+/g, '_')}_${data.start}.pdf`;
+    const xlsxBuffer = await buildXlsx(data, signatureDataUrl);
+    const xlsxBase64 = arrayBufferToBase64(xlsxBuffer);
+    const filename = `Timesheet_${data.employeeName.replace(/\s+/g, '_')}_${data.start}.xlsx`;
 
     setStatus('Sending email…', 'pending');
 
@@ -450,11 +369,20 @@ async function onSubmit() {
       employeeName: data.employeeName,
       payPeriod: `${data.start} to ${isoDate(addDays(new Date(data.start + 'T00:00:00'), 13))}`,
       filename,
-      pdfBase64
+      fileBase64: xlsxBase64
     });
 
     setStatus('Timesheet sent. A copy has also been downloaded for your records.', 'ok');
-    doc.save(filename);
+
+    const blob = new Blob([xlsxBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
   } catch (err) {
     console.error(err);
     setStatus('Something went wrong generating or sending the timesheet. Try again.', 'error');
