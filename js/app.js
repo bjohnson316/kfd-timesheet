@@ -320,6 +320,13 @@ function init() {
     document.body.addEventListener('input', (e) => {
       if (e.target.closest('table.timesheet-table')) recalcAll();
     });
+    document.body.addEventListener('focusin', (e) => {
+      const el = e.target;
+      if (el.matches('input[type="time"]') && !el.value) {
+        el.value = '07:00';
+        recalcAll();
+      }
+    });
 
     sigPad = createSignaturePad(document.getElementById('sigPad'));
     document.getElementById('clearSig').addEventListener('click', () => sigPad.clear());
