@@ -24,6 +24,93 @@ function round2(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+const DRAFT_STORAGE_KEY = 'krumFireTimesheetDraft_v1';
+let draftSaveTimer = null;
+
+function collectDraftState() {
+  const week = (tableId) => Array.from(document.querySelectorAll(`#${tableId} tbody tr`)).map(tr => {
+    const row = {};
+    ['in', 'out', ...HOUR_KEYS].forEach(key => {
+      row[key] = tr.querySelector(`input[data-field="${key}"]`).value;
+    });
+    return row;
+  });
+
+  return {
+    employeeName: document.getElementById('employeeName').value,
+    scheduleCode: document.getElementById('scheduleCode').value,
+    payPeriodStart: document.getElementById('payPeriodStart').value,
+    notes: document.getElementById('notes').value,
+    recipientEmail: document.getElementById('recipientEmail').value,
+    sigDate: document.getElementById('sigDate').value,
+    attestCheck: document.getElementById('attestCheck').checked,
+    week1: week('table-week-1'),
+    week2: week('table-week-2'),
+    signature: (sigPad && !sigPad.isEmpty()) ? sigPad.toDataURL() : null
+  };
+}
+
+function saveDraft() {
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(collectDraftState()));
+    } catch (err) {
+      // Storage can fail (private browsing, quota, disabled) — not worth
+      // interrupting the person filling out the form over.
+      console.error('Could not save draft:', err);
+    }
+  }, 300);
+}
+
+function restoreDraft() {
+  let saved;
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return;
+    saved = JSON.parse(raw);
+  } catch (err) {
+    console.error('Could not read saved draft:', err);
+    return;
+  }
+
+  if (saved.employeeName) document.getElementById('employeeName').value = saved.employeeName;
+  if (saved.scheduleCode) document.getElementById('scheduleCode').value = saved.scheduleCode;
+  if (saved.payPeriodStart) document.getElementById('payPeriodStart').value = saved.payPeriodStart;
+  if (saved.notes) document.getElementById('notes').value = saved.notes;
+  if (saved.recipientEmail) document.getElementById('recipientEmail').value = saved.recipientEmail;
+  if (saved.sigDate) document.getElementById('sigDate').value = saved.sigDate;
+  document.getElementById('attestCheck').checked = !!saved.attestCheck;
+
+  const restoreWeek = (tableId, rows) => {
+    if (!rows) return;
+    const trs = document.querySelectorAll(`#${tableId} tbody tr`);
+    rows.forEach((rowData, i) => {
+      if (!trs[i]) return;
+      ['in', 'out', ...HOUR_KEYS].forEach(key => {
+        if (rowData[key]) trs[i].querySelector(`input[data-field="${key}"]`).value = rowData[key];
+      });
+    });
+  };
+  restoreWeek('table-week-1', saved.week1);
+  restoreWeek('table-week-2', saved.week2);
+
+  if (saved.signature && sigPad) sigPad.loadFromDataURL(saved.signature);
+
+  if (saved.employeeName || saved.payPeriodStart || saved.week1 || saved.week2) {
+    setStatus('Restored your unsubmitted entries from this browser.', 'pending');
+  }
+}
+
+function clearDraft() {
+  clearTimeout(draftSaveTimer);
+  try {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+  } catch (err) {
+    console.error('Could not clear saved draft:', err);
+  }
+}
+
 function buildWeekRows(tbody, startIndex) {
   tbody.innerHTML = '';
   for (let i = 0; i < 7; i++) {
@@ -397,9 +484,27 @@ function init() {
     });
 
     sigPad = createSignaturePad(document.getElementById('sigPad'));
-    document.getElementById('clearSig').addEventListener('click', () => sigPad.clear());
+    document.getElementById('clearSig').addEventListener('click', () => {
+      sigPad.clear();
+      saveDraft();
+    });
 
+    restoreDraft();
     recalcAll();
+
+    document.getElementById('startFreshBtn').addEventListener('click', () => {
+      if (confirm('Clear all entries on this form? This cannot be undone.')) {
+        clearDraft();
+        window.location.reload();
+      }
+    });
+
+    // Autosave everything: typed fields, table entries, checkbox, and the
+    // signature (captured on pointer-up, not on every stroke motion).
+    document.body.addEventListener('input', saveDraft);
+    document.body.addEventListener('change', saveDraft);
+    document.getElementById('sigPad').addEventListener('mouseup', saveDraft);
+    document.getElementById('sigPad').addEventListener('touchend', saveDraft);
   } catch (err) {
     console.error('Error while setting up the form:', err);
     setStatus('The form did not load correctly (' + err.message + '). Try refreshing the page.', 'error');
@@ -459,10 +564,12 @@ async function onSubmit() {
 
     if (result.ok && !result.unconfirmed) {
       setStatus('Timesheet emailed successfully. A copy has also been downloaded for your records.', 'ok');
+      clearDraft();
     } else if (result.ok && result.unconfirmed) {
       setStatus('Timesheet submitted, but this browser could not confirm delivery — check that it arrived, or ask the recipient. A copy has been downloaded for your records.', 'pending');
+      clearDraft();
     } else {
-      setStatus('The timesheet was NOT emailed: ' + result.message + ' A copy has still been downloaded so you don\'t lose your entries.', 'error');
+      setStatus('The timesheet was NOT emailed: ' + result.message + ' A copy has still been downloaded so you don\'t lose your entries. Your entries are still saved in this browser — fix the issue above and try submitting again.', 'error');
     }
   } catch (err) {
     console.error(err);
