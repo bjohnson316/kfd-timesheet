@@ -110,6 +110,15 @@ The **director signature** is not captured digitally — the submitted
 spreadsheet's director signature line is left blank, matching the original
 file, for the director to sign by hand after printing.
 
+**Entries are saved automatically in the browser** (name, pay period, every
+hour entered, notes, and the signature) as you type, so refreshing the page
+or closing the tab by accident doesn't lose your work. This is stored only
+in that browser (`localStorage`, nothing sent anywhere) and is cleared
+automatically once a timesheet is successfully emailed. Use the **Start
+fresh** button next to the pay-period field to manually clear it — handy on
+a shared station computer, or if the form is being reused for a different
+person or pay period without submitting first.
+
 ## Files
 
 ```
@@ -151,3 +160,32 @@ assets/timesheet-template.xlsx      the original spreadsheet — do not edit
   the signature line — it doesn't go in a cell — so it won't show up if the
   file is opened in a tool that strips images, but will in Excel, Google
   Sheets, LibreOffice, and Numbers.
+
+## Troubleshooting: "I submitted, but no email arrived"
+
+The app now reports the actual result of the send (success, a specific
+error, or "couldn't confirm") in the status line under the submit button —
+if you haven't seen that message yet, submit again and read it first, since
+it usually points straight at the problem.
+
+Most common causes, in order of likelihood:
+
+1. **`Code.gs` on script.google.com is out of date.** If you ever edit
+   `apps-script/Code.gs` in this repo, that change does nothing on its own —
+   you have to paste the updated code into the script at
+   [script.google.com](https://script.google.com) and then
+   **Deploy → Manage deployments → Edit (pencil icon) → New version → Deploy**.
+   Editing the file in GitHub and editing the live script are two separate
+   places; keeping them in sync is manual.
+2. **Check spam/junk** in the recipient's inbox.
+3. **Check the Apps Script execution log.** In script.google.com, open the
+   project → **Executions** (left sidebar) → look at the most recent
+   `doPost` run. This shows the actual error if something failed inside the
+   script (bad recipient, quota exceeded, etc.), which is much more precise
+   than anything the browser can tell you.
+4. **Quota exceeded.** A plain Gmail account is capped around 100
+   `MailApp.sendEmail` calls/day. Unlikely for normal use, but shows up in
+   the Executions log if it happens.
+5. **Wrong Apps Script URL.** Confirm `js/config.js` has the `/exec` URL
+   (not `/dev`) from your most recent deployment — every new deployment
+   version can get a new URL depending on how you deployed it.
