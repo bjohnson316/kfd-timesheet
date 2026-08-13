@@ -97,11 +97,16 @@ h1 .sub{
 /* ---------- Identity row ---------- */
 .ident-row{
   display:grid;
-  grid-template-columns:2fr 1fr 1.4fr;
+  grid-template-columns:1.6fr 1fr 1.2fr auto;
   gap:20px;
+  align-items:end;
   padding:22px 32px;
   border-bottom:1px solid var(--line);
   background:var(--paper);
+}
+.start-fresh-field .ghost-btn{
+  white-space:nowrap;
+  padding:9px 14px;
 }
 .field label, .sign-help, .attest-row, .field-inline label{
   font-size:12px;
