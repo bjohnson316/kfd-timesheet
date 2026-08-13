@@ -66,6 +66,16 @@ function createSignaturePad(canvas) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       hasStroke = false;
     },
-    toDataURL: () => canvas.toDataURL('image/png')
+    toDataURL: () => canvas.toDataURL('image/png'),
+    loadFromDataURL: (dataUrl) => {
+      if (!dataUrl) return;
+      const img = new Image();
+      img.onload = () => {
+        const rect = canvas.getBoundingClientRect();
+        ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        hasStroke = true;
+      };
+      img.src = dataUrl;
+    }
   };
 }
