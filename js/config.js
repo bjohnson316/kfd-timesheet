@@ -3,4 +3,4 @@
 // and the README), paste the Web App URL it gives you below.
 // It looks like: https://script.google.com/macros/s/AKfycb.../exec
 // ----------------------------------------------------------------
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwGg4kC2M0V_LtrsiT08_G5ZSUJbuvHsi-rutR_V4fHaFDqd2QbMONJljds1Cw_t5Hd/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-tKM1uy8zMxgkW0tCVK8Dtf6IiECtW2oBzrYx9VW6hvl4sbMLQFTAO0Ld2t3WrMk/exec";
