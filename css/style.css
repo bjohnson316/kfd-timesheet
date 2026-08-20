@@ -93,6 +93,11 @@ h1 .sub{
   color:var(--brick-dark);
   width:190px;
 }
+.timeoff-link{
+  margin-top:8px;
+  text-decoration:none;
+  display:inline-block;
+}
 
 /* ---------- Identity row ---------- */
 .ident-row{
