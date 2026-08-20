@@ -23,6 +23,8 @@ function doPost(e) {
     var payPeriod = params.payPeriod || "";
     var filename = params.filename || "Timesheet.xlsx";
     var fileBase64 = params.fileBase64;
+    var mimeType = params.mimeType || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    var subjectPrefix = params.emailSubjectPrefix || "Timesheet submission";
 
     if (!recipient || !fileBase64) {
       return jsonResponse({ status: "error", message: "Missing recipient or file data." });
@@ -30,16 +32,16 @@ function doPost(e) {
 
     var fileBlob = Utilities.newBlob(
       Utilities.base64Decode(fileBase64),
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      mimeType,
       filename
     );
 
-    var subject = "Timesheet submission - " + employeeName + " (" + payPeriod + ")";
+    var subject = subjectPrefix + " - " + employeeName + " (" + payPeriod + ")";
     var body =
-      "A signed timesheet has been submitted.\n\n" +
+      "A signed " + subjectPrefix.toLowerCase() + " has been submitted.\n\n" +
       "Employee: " + employeeName + "\n" +
       "Pay period: " + payPeriod + "\n\n" +
-      "The completed, signed timesheet is attached (same layout as the original spreadsheet, with hours and the employee signature filled in).";
+      "The completed, signed document is attached (same layout as the original, with entries and the employee signature filled in).";
 
     var mailOptions = { attachments: [fileBlob] };
     if (BCC_RECORD_KEEPING_EMAIL) {
