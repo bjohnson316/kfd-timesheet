@@ -1,25 +1,36 @@
-# Fire Hourly Timesheet — digital fill, sign & submit
+# KFD Forms — digital fill, sign & submit
 
-A static web app that recreates the "14 Day Schedule TIME RECORD (non-exempt)"
-timesheet as a fillable form: it auto-calculates row, week, and pay-period
-totals the same way the spreadsheet formulas do, captures a hand-drawn
-employee signature, and submits **the original spreadsheet file itself** —
-same layout, same colors, same formulas, same cell formatting — with your
-entries filled in, emailed to whoever you specify. No server required to
-host it.
+A static web app with two forms:
 
-City Hall's requirement was that the submitted document must be the actual
-spreadsheet, unchanged, not a redesigned copy — so this app doesn't rebuild
-the timesheet from scratch. It opens the real `assets/timesheet-template.xlsx`
-file (the one originally provided) in the browser, writes only the specific
-cells that hold employee name, pay period, daily hours, notes, signature
-date, and the signature image, and leaves every formula, column, color, and
-border exactly as it was.
+- **`index.html`** — the "14 Day Schedule TIME RECORD (non-exempt)" biweekly
+  timesheet
+- **`timeoff.html`** — the City of Krum Time Off Request form
+
+Both work the same way: auto-calculate anything the original document
+calculates, capture a hand-drawn employee signature, and submit **the
+original file itself** — same layout, same colors/branding, same formulas
+where applicable — with entries filled in, emailed to whoever you specify.
+No server required to host it, and the two forms submit and email
+completely independently of each other.
+
+City Hall's requirement was that submitted documents must be the actual
+original files, unchanged, not redesigned copies — so this app doesn't
+rebuild either document from scratch:
+
+- The timesheet opens the real `assets/timesheet-template.xlsx` file in the
+  browser, writes only the specific cells that hold employee name, pay
+  period, daily hours, notes, signature date, and the signature image, and
+  leaves every formula, column, color, and border exactly as it was.
+- The time off request opens the real `assets/time-off-request-template.pdf`
+  file and overlays the typed entries and signature directly on top of it at
+  the same positions as the original form's blank lines — the underlying
+  PDF (including the City seal) is untouched.
 
 It's built as plain HTML/CSS/JS so it can be hosted for free on **GitHub
-Pages**. Since GitHub Pages only serves static files, actually *sending* the
-email is handled by a small **Google Apps Script** you deploy once under your
-own Google account (free, no billing needed).
+Pages**. Since GitHub Pages only serves static files, actually *sending*
+email is handled by a small **Google Apps Script** you deploy once under
+your own Google account (free, no billing needed) — the same script backs
+both forms.
 
 ## How it works
 
@@ -119,16 +130,43 @@ fresh** button next to the pay-period field to manually clear it — handy on
 a shared station computer, or if the form is being reused for a different
 person or pay period without submitting first.
 
+## 5. Using the Time Off Request form
+
+Click **Request Time Off →** in the timesheet's header, or go directly to
+`timeoff.html`. It works the same way as the timesheet:
+
+1. Fill in employee name, hours requested/available for each category
+   (Vacation, Sick, Comp, Holiday, Other), beginning/thru dates, and the
+   return-to-work date.
+2. Sign in the signature box and confirm the date.
+3. Enter the recipient's email (defaults to `rcornelius@krumfire.com`, same
+   as the timesheet — change it if a request needs to go elsewhere).
+4. Click **Sign & submit request**. This fills in and emails the *original*
+   Time Off Request PDF, completely separately from the timesheet — it's a
+   different button, different file, different email, though both use the
+   same Apps Script backend to send.
+
+The **Supervisor** and **Finance Director** signature lines are left blank
+in the submitted PDF, same as the Director signature on the timesheet — printed and signed by hand after submission (the form itself notes the
+Finance Director's signature verifies time available, not approval).
+
+Entries autosave in the browser the same way the timesheet's do, under a
+separate draft key, and clear once a request is successfully emailed.
+
 ## Files
 
 ```
-index.html                          the form
-css/style.css                       styling
-js/config.js                        <- put your Apps Script URL here
-js/signature-pad.js                 dependency-free canvas signature capture
-js/app.js                           calculations, spreadsheet filling, submission
-apps-script/Code.gs                 paste into script.google.com
-assets/timesheet-template.xlsx      the original spreadsheet — do not edit
+index.html                              the timesheet form
+timeoff.html                            the time off request form
+css/style.css                           shared styling
+css/timeoff.css                         time off form-specific styling
+js/config.js                            <- put your Apps Script URL here
+js/signature-pad.js                     dependency-free canvas signature capture (used by both forms)
+js/app.js                               timesheet: calculations, spreadsheet filling, submission
+js/timeoff.js                           time off request: PDF filling, submission
+apps-script/Code.gs                     paste into script.google.com (backs both forms)
+assets/timesheet-template.xlsx          the original spreadsheet — do not edit
+assets/time-off-request-template.pdf    the original time off form — do not edit
 ```
 
 ## Customizing
@@ -139,6 +177,15 @@ assets/timesheet-template.xlsx      the original spreadsheet — do not edit
   at the top of `js/app.js` and the matching `<th>` cells in `index.html`
   if your department's pay codes or column layout differ. `HOUR_COLUMN_LETTERS`
   must match the actual column letters in `timesheet-template.xlsx`.
+- **Time off form field positions**: `TO_POSITIONS` at the top of
+  `js/timeoff.js` maps each field to an exact `[x, y]` position on the PDF
+  page (measured from the original form's text, top-left origin, converted
+  to PDF coordinates inside `buildTimeOffPdf()`). If City Hall issues a
+  revised time off form, replace `assets/time-off-request-template.pdf` and
+  re-measure these coordinates — the easiest way is opening the new PDF
+  with a tool like PyMuPDF (`page.get_text("words")`) to get exact
+  positions for each blank line, the same way the current ones were
+  measured.
 - **Template changes**: if City Hall issues a revised spreadsheet, replace
   `assets/timesheet-template.xlsx` with the new file. As long as the cell
   addresses for employee name (`C3`), pay period start (`C5`), the daily
