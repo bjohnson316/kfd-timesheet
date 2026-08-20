@@ -549,7 +549,9 @@ async function onSubmit() {
       employeeName: data.employeeName,
       payPeriod: `${data.start} to ${isoDate(addDays(new Date(data.start + 'T00:00:00'), 13))}`,
       filename,
-      fileBase64: xlsxBase64
+      fileBase64: xlsxBase64,
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      emailSubjectPrefix: 'Timesheet submission'
     });
 
     const blob = new Blob([xlsxBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
