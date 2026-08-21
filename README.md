@@ -85,6 +85,35 @@ Open `js/config.js` in this repo and paste your URL in:
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycb.../exec";
 ```
 
+### Set a shared passcode
+
+Both forms are gated behind a shared passcode so the page isn't wide open to
+anyone who finds the URL. This is a **light deterrent, not real security** —
+GitHub Pages can't enforce server-side auth, so anyone determined enough to
+view the page source could work around it. It's meant to keep out casual
+visitors and search engines, not a determined attacker; don't use it to
+gate anything genuinely sensitive.
+
+To set it: open any page from this app in a browser, open the developer
+console (F12 → Console tab), and run:
+
+```js
+crypto.subtle.digest('SHA-256', new TextEncoder().encode('yourPasscode'))
+  .then(b => console.log(Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2,'0')).join('')));
+```
+
+(replace `'yourPasscode'` with the actual passcode you want). Copy the long
+hex string it prints, and paste it into `js/config.js`:
+
+```js
+const ACCESS_PASSCODE_HASH = "the hex string you copied";
+```
+
+Never put the plain passcode itself in `config.js` — only the hash. Share
+the plain passcode with your crew some other way (verbally, a text, etc.).
+Anyone entering it correctly stays unlocked on that browser until they
+clear their browser data or you change the passcode.
+
 ## 3. Host it on GitHub Pages
 
 1. Create a new GitHub repository and push everything in this folder to it —
@@ -160,7 +189,8 @@ index.html                              the timesheet form
 timeoff.html                            the time off request form
 css/style.css                           shared styling
 css/timeoff.css                         time off form-specific styling
-js/config.js                            <- put your Apps Script URL here
+js/config.js                            <- put your Apps Script URL and passcode hash here
+js/access-gate.js                       shared passcode gate (used by both forms)
 js/signature-pad.js                     dependency-free canvas signature capture (used by both forms)
 js/app.js                               timesheet: calculations, spreadsheet filling, submission
 js/timeoff.js                           time off request: PDF filling, submission
@@ -199,10 +229,15 @@ assets/time-off-request-template.pdf    the original time off form — do not ed
 
 ## Limitations
 
-- There's no login step — anyone with the page URL can submit a timesheet
-  under any name they type in. If that's a concern, put the GitHub Pages
-  URL behind your department's existing SSO/network restrictions, or add a
-  shared passphrase check in `app.js` before enabling submission.
+- Anyone who knows the shared passcode can submit a timesheet under any
+  name they type in — the passcode gates *access to the page*, not *who
+  someone claims to be* on the form. If that distinction matters, this
+  would need real authentication (e.g. putting the GitHub Pages URL behind
+  your department's existing SSO/network restrictions), which is beyond
+  what a static site can do on its own.
+- The passcode gate itself is client-side only (see the setup section
+  above) — it deters casual/accidental visitors and search engines, not a
+  determined attacker with browser dev tools.
 - The employee signature is embedded as a floating image positioned over
   the signature line — it doesn't go in a cell — so it won't show up if the
   file is opened in a tool that strips images, but will in Excel, Google
